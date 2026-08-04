@@ -43,39 +43,79 @@
 
 ## 빠른 시작
 
+> ⚠️ **이 저장소에는 코드·문서만 있고 실습 데이터·툴(약 3.3GB)은 포함돼 있지 않습니다.**
+> 워크숍에서 배포된 데이터와 툴 바이너리·컨테이너 이미지를 아래 구조로 직접 배치해야
+> 실행됩니다. 라이선스·용량 문제로 재배포하지 않습니다.
+
+### 1단계 — 저장소를 받고 데이터를 배치
+
 ```bash
-# 1) 데이터·툴·스크립트를 한 폴더에 배치 (아래 "필요한 데이터" 참조)
-cd /path/to/pangenome_kogo_2026
+git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git
+cd pangenome_tutorial_2608
 
-# 2) 실행 환경 구성 (conda/mamba)
-bash scripts/00_setup_env.sh
-
-# 3) 전체 실행 — 또는 phase를 1/2/3으로 나눠 실행
-bash scripts/run_all_kogo_day2.sh all
-bash scripts/run_all_kogo_day2.sh 1        # 실습1만
+# 워크숍 배포 데이터·툴을 저장소 루트에 배치 (또는 심볼릭 링크)
+ln -s /경로/01_data_prepare  01_data_prepare
+ln -s /경로/tools            tools
 ```
 
-스크립트는 **자기 위치를 자동 감지**하므로 어느 경로에 두어도 동작합니다. 산출물은
-`kogo_run/` 하위에 생성되며 입력 데이터는 변경하지 않습니다.
-
-### 필요한 데이터 (저장소에 미포함 — 용량 문제)
+배치 후 구조 — **`01_data_prepare/`와 `tools/`가 저장소 루트에 있어야 합니다**:
 
 ```
-pangenome_kogo_2026/
+pangenome_tutorial_2608/
 ├── 01_data_prepare/
 │   ├── 00_toy_pangenome/     # OUR.gbz, OUR.full.gbz, OUR.gfa.gz, OUR.hapl,
 │   │                         # OUR.vcf.gz(+.tbi), GRCh38.chr2_1-5Mb.fa(+.fai)
 │   └── 01_srWGS/             # HG00438_{1,2}.fq.gz, HG02257_{1,2}.fq.gz
 ├── tools/
-│   ├── vg167_kmc324/bin/     # vg 1.67.0 + KMC 3.2.4
-│   ├── vg174_kmc324/bin/     # vg 1.74.1
-│   └── deepvariant_pangenome_aware_1.8.0.sif
-└── scripts/ docs/ figures/   # 이 저장소
+│   ├── vg167_kmc324/bin/     # vg 1.67.0 + KMC 3.2.4  (실습2-① 전용)
+│   ├── vg174_kmc324/bin/     # vg 1.74.1              (매핑·콜·surject)
+│   └── deepvariant_pangenome_aware_1.8.0.sif          # 실습3 (약 3.1GB)
+├── scripts/ docs/ figures/ results/     # ← 이 저장소가 제공하는 부분
+└── kogo_run/                            # 실행 시 생성되는 산출물
 ```
 
-**환경 요구사항:** Linux x86_64 (vg·KMC·DeepVariant는 이 플랫폼 전용),
-apptainer 또는 singularity, conda/mamba. 실습 1만 실행한다면 macOS에서도 가능합니다
-(단 `grep -P` → `-E` 치환 필요).
+배치가 맞는지 확인 (체크섬 검증):
+
+```bash
+bash scripts/check_data.sh
+# → "일치 19 / 없음 0 / 불일치 0" 이면 준비 완료
+```
+
+필요한 파일의 전체 목록·크기·SHA-256은 [docs/DATA_MANIFEST.md](docs/DATA_MANIFEST.md)에
+있습니다.
+
+### 2단계 — 환경 구성 및 실행
+
+```bash
+bash scripts/00_setup_env.sh              # conda/mamba 환경 'kogo' 생성
+
+bash scripts/run_all_kogo_day2.sh all     # 전체 (실습1→2→3)
+bash scripts/run_all_kogo_day2.sh 1       # 실습1만 (bcftools·panacus만 필요)
+bash scripts/run_all_kogo_day2.sh 2       # 실습2만
+bash scripts/run_all_kogo_day2.sh 3       # 실습3만
+```
+
+스크립트는 **자기 위치에서 저장소 루트를 자동 감지**합니다(`scripts/` 하위에 있어도 상위를
+ROOT로 인식). 데이터를 다른 곳에 두었다면 환경변수로 지정하세요:
+
+```bash
+KOGO_ROOT=/데이터/경로 bash scripts/run_all_kogo_day2.sh all
+```
+
+산출물은 `kogo_run/` 하위에 생성되며 **입력 데이터는 변경하지 않습니다**. 필수 입력이
+없으면 스크립트가 어떤 파일이 어디에 있어야 하는지 안내하고 종료합니다.
+
+### 환경 요구사항
+
+| 실행 범위 | 요구사항 |
+|---|---|
+| **실습1만** | conda/mamba + bcftools · **panacus 0.4.1** · cyvcf2 — macOS도 가능\* |
+| **실습2·3** | **Linux x86_64** (vg·KMC·DeepVariant는 이 플랫폼 전용) + apptainer 또는 singularity |
+
+\* macOS에서는 BSD grep이 `-P`를 지원하지 않아 집단특이 단계에서 빈 결과가 나옵니다
+(`grep -P` → `-E` 치환 필요). Linux GNU grep에서는 원본 그대로 동작합니다.
+
+SLURM 환경 예시와 HPC별 함정은 [docs/GUIDE.md](docs/GUIDE.md)를 참조하세요.
 
 ---
 

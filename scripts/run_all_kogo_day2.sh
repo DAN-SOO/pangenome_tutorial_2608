@@ -33,8 +33,23 @@
 # =============================================================================
 set -eo pipefail
 
-# ---- ROOT 자동 감지: 이 스크립트가 놓인 디렉터리 ----------------------------
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ---- ROOT 자동 감지 ---------------------------------------------------------
+# 이 스크립트가 놓인 디렉터리를 기준으로 하되, scripts/ 안에 있으면 상위를 ROOT로 본다.
+#   <ROOT>/run_all_kogo_day2.sh          → ROOT = 그 디렉터리
+#   <ROOT>/scripts/run_all_kogo_day2.sh  → ROOT = 상위 디렉터리 (git 저장소 구조)
+# 데이터 폴더(01_data_prepare)가 있는 쪽을 ROOT로 확정한다.
+_SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -d "${_SD}/01_data_prepare" ]]; then
+    ROOT="${_SD}"
+elif [[ -d "$(dirname "${_SD}")/01_data_prepare" ]]; then
+    ROOT="$(dirname "${_SD}")"
+elif [[ "$(basename "${_SD}")" == "scripts" ]]; then
+    ROOT="$(dirname "${_SD}")"          # 데이터 미배치 상태 — 아래 need()가 안내 출력
+else
+    ROOT="${_SD}"
+fi
+# 환경변수로 덮어쓰기 가능: KOGO_ROOT=/path/to/data bash run_all_kogo_day2.sh
+ROOT="${KOGO_ROOT:-$ROOT}"
 
 # ---- conda 활성화 (있으면) ---------------------------------------------------
 if command -v conda >/dev/null 2>&1; then
@@ -63,7 +78,28 @@ echo "[INFO] ROOT=$ROOT"
 echo "[INFO] WORK=$WORK   PHASE=$PHASE"
 
 # ---- 입력 점검 --------------------------------------------------------------
-need() { [[ -e "$1" ]] || { echo "ERROR: 없음 → $1" >&2; exit 1; }; }
+need() {
+    [[ -e "$1" ]] && return 0
+    cat >&2 <<EOF
+
+ERROR: 필수 입력이 없습니다 → $1
+
+이 저장소에는 코드·문서만 있고 실습 데이터·툴은 용량 때문에 포함돼 있지 않습니다.
+ROOT(=$ROOT) 아래에 다음 구조로 배치해 주세요:
+
+  \$ROOT/01_data_prepare/00_toy_pangenome/   OUR.gbz OUR.full.gbz OUR.gfa.gz OUR.hapl
+                                            OUR.vcf.gz(+.tbi) GRCh38.chr2_1-5Mb.fa(+.fai)
+  \$ROOT/01_data_prepare/01_srWGS/           HG00438_{1,2}.fq.gz  HG02257_{1,2}.fq.gz
+  \$ROOT/tools/vg167_kmc324/bin/             vg(1.67.0) kmc kmc_tools    # 실습2-① 전용
+  \$ROOT/tools/vg174_kmc324/bin/             vg(1.74.1)                  # 매핑·콜·surject
+  \$ROOT/tools/deepvariant_pangenome_aware_1.8.0.sif                     # 실습3
+
+데이터 위치가 다르면:  KOGO_ROOT=/데이터/경로 bash $(basename "${BASH_SOURCE[0]}") $PHASE
+자세한 안내는 docs/GUIDE.md 의 "필요한 데이터" 절 참조.
+
+EOF
+    exit 1
+}
 need "$DATA/OUR.gbz"; need "$DATA/OUR.vcf.gz"; need "$DATA/OUR.gfa.gz"
 
 # ---- sampleList (상대경로가 아니라 ROOT 기준 절대경로로 기록) ----------------
