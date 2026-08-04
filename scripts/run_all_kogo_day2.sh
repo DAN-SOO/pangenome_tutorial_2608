@@ -33,23 +33,38 @@
 # =============================================================================
 set -eo pipefail
 
-# ---- ROOT 자동 감지 ---------------------------------------------------------
-# 이 스크립트가 놓인 디렉터리를 기준으로 하되, scripts/ 안에 있으면 상위를 ROOT로 본다.
-#   <ROOT>/run_all_kogo_day2.sh          → ROOT = 그 디렉터리
-#   <ROOT>/scripts/run_all_kogo_day2.sh  → ROOT = 상위 디렉터리 (git 저장소 구조)
-# 데이터 폴더(01_data_prepare)가 있는 쪽을 ROOT로 확정한다.
-_SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -d "${_SD}/01_data_prepare" ]]; then
-    ROOT="${_SD}"
-elif [[ -d "$(dirname "${_SD}")/01_data_prepare" ]]; then
-    ROOT="$(dirname "${_SD}")"
-elif [[ "$(basename "${_SD}")" == "scripts" ]]; then
-    ROOT="$(dirname "${_SD}")"          # 데이터 미배치 상태 — 아래 need()가 안내 출력
+# =============================================================================
+#  경로 3분리: 코드(CODE) · 데이터(DATA_ROOT) · 산출물(WORK)
+# -----------------------------------------------------------------------------
+#  데이터는 여러 사람이 공유(읽기 전용), 코드와 산출물은 각자 자기 디렉터리에서.
+#
+#    CODE_DIR   이 스크립트가 있는 곳            (각자 clone한 저장소)
+#    DATA_ROOT  01_data_prepare/ 와 tools/ 가 있는 곳   (공유, 쓰기 안 함)
+#    WORK       모든 산출물이 생기는 곳          (각자 개인 폴더, 기본 ./kogo_run)
+#
+#  우선순위
+#    DATA_ROOT : $KOGO_DATA  →  코드 옆/상위에서 자동 탐색
+#    WORK      : 2번째 인자  →  $KOGO_OUT  →  현재 디렉터리(PWD)/kogo_run
+#
+#  예) 공유 데이터 + 개인 작업공간
+#    export KOGO_DATA=/data1/share/pangenome_kogo_2026
+#    cd ~/my_pangenome_run && bash /path/to/repo/scripts/run_all_kogo_day2.sh all
+# =============================================================================
+CODE_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# ---- DATA_ROOT 결정 ---------------------------------------------------------
+_has_data() { [[ -d "$1/01_data_prepare" || -d "$1/tools" ]]; }
+if [[ -n "${KOGO_DATA:-}" ]]; then
+    DATA_ROOT="${KOGO_DATA%/}"
+elif [[ -n "${KOGO_ROOT:-}" ]]; then       # 이전 버전 호환
+    DATA_ROOT="${KOGO_ROOT%/}"
+elif _has_data "${CODE_DIR}"; then
+    DATA_ROOT="${CODE_DIR}"                          # 스크립트와 데이터가 같은 폴더
+elif _has_data "$(dirname "${CODE_DIR}")"; then
+    DATA_ROOT="$(dirname "${CODE_DIR}")"             # 저장소 구조(scripts/ 하위)
 else
-    ROOT="${_SD}"
+    DATA_ROOT="$(dirname "${CODE_DIR}")"             # 미배치 — need()가 안내 출력
 fi
-# 환경변수로 덮어쓰기 가능: KOGO_ROOT=/path/to/data bash run_all_kogo_day2.sh
-ROOT="${KOGO_ROOT:-$ROOT}"
 
 # ---- conda 활성화 (있으면) ---------------------------------------------------
 if command -v conda >/dev/null 2>&1; then
@@ -58,24 +73,44 @@ if command -v conda >/dev/null 2>&1; then
 fi
 set -u
 
-# ---- 경로 (전부 ROOT 기준 절대경로 → CWD 무관하게 항상 유효) ------------------
-DATA="${ROOT}/01_data_prepare/00_toy_pangenome"
-SRWGS="${ROOT}/01_data_prepare/01_srWGS"
-TOOLS="${ROOT}/tools"
+# ---- 입력 경로 (DATA_ROOT 기준, 읽기 전용) -----------------------------------
+DATA="${DATA_ROOT}/01_data_prepare/00_toy_pangenome"
+SRWGS="${DATA_ROOT}/01_data_prepare/01_srWGS"
+TOOLS="${DATA_ROOT}/tools"
 VG167="${TOOLS}/vg167_kmc324/bin"      # KMC 단계용 vg 1.67.0 + KMC
 VG174="${TOOLS}/vg174_kmc324/bin"      # 매핑/콜/surject 용 vg 1.74.1
 SIF="${TOOLS}/deepvariant_pangenome_aware_1.8.0.sif"
 
+# ---- 산출물 경로 (개인 작업공간) ---------------------------------------------
 PHASE="${1:-all}"
-WORK="${2:-${ROOT}/kogo_run}"
+WORK="${2:-${KOGO_OUT:-${PWD}/kogo_run}}"
+if ! mkdir -p "$WORK" 2>/dev/null; then
+    echo "ERROR: 산출물 폴더를 만들 수 없습니다 → $WORK" >&2
+    echo "       쓰기 권한이 있는 개인 폴더를 지정하세요:" >&2
+    echo "         KOGO_OUT=\$HOME/pangenome_run bash $0 ${PHASE}" >&2
+    exit 1
+fi
+if [[ ! -w "$WORK" ]]; then
+    echo "ERROR: 산출물 폴더에 쓸 수 없습니다(읽기 전용) → $WORK" >&2
+    echo "       KOGO_OUT=\$HOME/pangenome_run 처럼 개인 폴더를 지정하세요." >&2
+    exit 1
+fi
+WORK="$(cd "$WORK" && pwd)"    # 절대경로로 정규화
 SHARDS=3
 THREADS=3
 TAG=chr2_1-5Mb
-export MPLCONFIGDIR="/tmp/matplotlib-${USER:-kogo}"; mkdir -p "$MPLCONFIGDIR"
+export MPLCONFIGDIR="${TMPDIR:-/tmp}/matplotlib-${USER:-kogo}"; mkdir -p "$MPLCONFIGDIR"
 
 mkdir -p "$WORK/bin"
-echo "[INFO] ROOT=$ROOT"
-echo "[INFO] WORK=$WORK   PHASE=$PHASE"
+echo "[INFO] CODE  = $CODE_DIR"
+echo "[INFO] DATA  = $DATA_ROOT        (읽기 전용)"
+echo "[INFO] WORK  = $WORK             (산출물)"
+echo "[INFO] PHASE = $PHASE"
+
+# 산출물 폴더가 데이터 폴더 안이면 경고 (공유 데이터 오염 방지)
+case "$WORK/" in
+  "${DATA_ROOT}/"*) echo "[WARN] WORK가 공유 데이터 폴더 안에 있습니다 — 개인 폴더 사용을 권장합니다." >&2 ;;
+esac
 
 # ---- 입력 점검 --------------------------------------------------------------
 need() {
@@ -85,16 +120,22 @@ need() {
 ERROR: 필수 입력이 없습니다 → $1
 
 이 저장소에는 코드·문서만 있고 실습 데이터·툴은 용량 때문에 포함돼 있지 않습니다.
-ROOT(=$ROOT) 아래에 다음 구조로 배치해 주세요:
+데이터를 찾은 위치: DATA_ROOT=$DATA_ROOT
+다른 곳(예: 공유 폴더)에 있다면 다음처럼 알려주세요:
 
-  \$ROOT/01_data_prepare/00_toy_pangenome/   OUR.gbz OUR.full.gbz OUR.gfa.gz OUR.hapl
+  export KOGO_DATA=/공유/경로/pangenome_kogo_2026
+  bash $0 $PHASE
+
+DATA_ROOT 아래에 필요한 구조:
+
+  \$DATA_ROOT/01_data_prepare/00_toy_pangenome/   OUR.gbz OUR.full.gbz OUR.gfa.gz OUR.hapl
                                             OUR.vcf.gz(+.tbi) GRCh38.chr2_1-5Mb.fa(+.fai)
-  \$ROOT/01_data_prepare/01_srWGS/           HG00438_{1,2}.fq.gz  HG02257_{1,2}.fq.gz
-  \$ROOT/tools/vg167_kmc324/bin/             vg(1.67.0) kmc kmc_tools    # 실습2-① 전용
-  \$ROOT/tools/vg174_kmc324/bin/             vg(1.74.1)                  # 매핑·콜·surject
-  \$ROOT/tools/deepvariant_pangenome_aware_1.8.0.sif                     # 실습3
+  \$DATA_ROOT/01_data_prepare/01_srWGS/           HG00438_{1,2}.fq.gz  HG02257_{1,2}.fq.gz
+  \$DATA_ROOT/tools/vg167_kmc324/bin/             vg(1.67.0) kmc kmc_tools    # 실습2-① 전용
+  \$DATA_ROOT/tools/vg174_kmc324/bin/             vg(1.74.1)                  # 매핑·콜·surject
+  \$DATA_ROOT/tools/deepvariant_pangenome_aware_1.8.0.sif                     # 실습3
 
-데이터 위치가 다르면:  KOGO_ROOT=/데이터/경로 bash $(basename "${BASH_SOURCE[0]}") $PHASE
+산출물 위치를 바꾸려면:  KOGO_OUT=/개인/작업폴더 bash $0 $PHASE
 자세한 안내는 docs/GUIDE.md 의 "필요한 데이터" 절 참조.
 
 EOF
@@ -488,11 +529,17 @@ phase3() {
   # --- 3-② pangenome-aware DeepVariant (공유메모리 없이 3단계 직접 호출) + GLnexus ---
   #  강사 수정본: run_pangenome_aware_deepvariant(고정이름 공유메모리) 대신
   #  make_examples → call_variants → postprocess 를 직접 호출 → /dev/shm 충돌 없음.
-  [[ -s "${REF}.fai" ]] || samtools faidx "$REF"
   local INPUTD=input OUTPUTD=output JOINTD=joint
   mkdir -p ${INPUTD} ${OUTPUTD} ${JOINTD}
-  cp "$REF" "${REF}.fai" "$PANGENOME" ${INPUTD}/
   local REFB=$(basename "$REF") PANB=$(basename "$PANGENOME")
+  # 참조·판지놈을 개인 작업공간으로 복사 후 여기서 색인한다.
+  # (공유 데이터 폴더는 읽기 전용일 수 있으므로 .fai 를 그쪽에 만들지 않는다)
+  cp "$REF" "$PANGENOME" ${INPUTD}/
+  if [[ -s "${REF}.fai" ]]; then
+      cp "${REF}.fai" ${INPUTD}/
+  else
+      samtools faidx "${INPUTD}/${REFB}"
+  fi
 
   while read -r SAMPLE R1 R2; do
     [[ -z "$SAMPLE" ]] && continue

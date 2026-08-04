@@ -2,46 +2,80 @@
 
 한국인 판지놈(KPP) toy 그래프(chr2:1-5Mb)로 **매핑 → 변이 분석 → SV genotyping →
 small variant calling** 전 과정을 한 폴더 안에서 실행하는 패키지입니다.
-**모든 스크립트는 강사 원본 코드 기반**이고, 경로는 전부 **상대(자동 감지)** 라 폴더를
-어디에 압축 풀든 그대로 돌아갑니다.
+**모든 스크립트는 강사 원본 코드 기반**이고, 경로는 전부 자동 감지·환경변수로 정해지므로
+어디에 두든 그대로 돌아갑니다. 데이터는 공유(읽기 전용)하고 산출물은 각자 폴더에 씁니다.
 
 ---
 
 전체 데이터 흐름 그림은 `kogo_pipeline_overview.png` 참고 (각 단계가 무엇을
 소비하고 무엇을 만드는지 한눈에).
 
+> 처음 설치하신다면 **[SETUP.md](SETUP.md)** 를 보세요 (단계별 상세 안내).
+
 ## 0. 빠른 시작 (TL;DR)
 
-내 서버 목표 경로: **`/data1/dansay/test/pangenome_kogo_2026`**
+**데이터는 공유, 코드와 산출물은 각자 자기 디렉터리**에서 돌아갑니다.
 
 ```bash
-# 0) 이 경로에 아래 구조가 있어야 함 (강사 edu00 폴더의 01_data_prepare/, tools/ 를 그대로)
-#    /data1/dansay/test/pangenome_kogo_2026/
-#      ├── run_all_kogo_day2.sh   00_setup_env.sh   GUIDE.md
-#      ├── 01_data_prepare/       ← 데이터
-#      └── tools/                 ← vg167_kmc324, vg174_kmc324, *.sif
-cd /data1/dansay/test/pangenome_kogo_2026
+# 0) 코드 — 원하는 디렉터리에 clone (1회)
+git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git \
+    /data1/dansay/tools/pangenome_tutorial_2608
+export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
 
-# 1) conda 환경 (최초 1회) — mamba/conda 필요
-bash 00_setup_env.sh
+# 1) 공유 데이터 위치 지정 (~/.bashrc 에 넣어두면 매번 안 써도 됩니다)
+export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026
+
+# 2) conda 환경 (최초 1회) — mamba/conda 필요
+bash "$KOGO_CODE/scripts/00_setup_env.sh"
 conda activate kogo
+bash "$KOGO_CODE/scripts/check_data.sh"          # 데이터 배치 확인 (일치 19 / 없음 0)
 
-# 2) 전체 실행 (실습 1~3)
-bash run_all_kogo_day2.sh            # = PHASE all
+# 3) 자기 작업 폴더에서 실행 — 산출물이 여기 생깁니다
+mkdir -p /data1/dansay/run/pangenome_run && cd /data1/dansay/run/pangenome_run
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh"            # = PHASE all
 #  또는 단계별:
-bash run_all_kogo_day2.sh 1          # 실습1 (growth curve + 변이 분석)
-bash run_all_kogo_day2.sh 2          # 실습2 (vg giraffe SV genotyping)
-bash run_all_kogo_day2.sh 3          # 실습3 (pangenome-aware DeepVariant)
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 1          # 실습1 (growth curve + 변이 분석)
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 2          # 실습2 (vg giraffe SV genotyping)
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 3          # 실습3 (pangenome-aware DeepVariant)
 ```
 
-산출물은 기본적으로 `/data1/dansay/test/pangenome_kogo_2026/kogo_run/` 아래에 생깁니다
-(입력 데이터는 건드리지 않음). 스크립트는 자기 위치(ROOT)를 자동 감지하므로 어느
-디렉터리에서 실행하든 됩니다. 다른 출력 위치를 쓰려면:
-`bash run_all_kogo_day2.sh all /원하는/출력폴더`.
+### 경로 3분리
+
+| 구분 | 결정 방식 | 쓰기 |
+|---|---|---|
+| **CODE** | 스크립트 위치에서 자동 | 안 함 |
+| **DATA** | `$KOGO_DATA` → 없으면 코드 옆/상위 자동 탐색 | **안 함** (읽기 전용 OK) |
+| **WORK** | 2번째 인자 → `$KOGO_OUT` → **현재 디렉터리**`/kogo_run` | 여기만 |
+
+산출물 위치를 명시하려면 `KOGO_OUT=/scratch/$USER/kogo_run` 또는 2번째 인자
+(`bash .../run_all_kogo_day2.sh all /원하는/출력폴더`). 실행 시작 시 세 경로를 출력합니다.
+
+여러 사람이 같은 `$KOGO_DATA`를 동시에 써도 서로 간섭하지 않습니다 — 공유 폴더에는
+아무것도 쓰지 않고, DeepVariant용 참조 색인(`.fai`)도 각자 작업 폴더에서 만듭니다.
+
+### SLURM 예시
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=kogo_day2
+#SBATCH --partition=cpu
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=64G
+#SBATCH --output=kogo_day2.%j.log
+
+source /path/to/conda/etc/profile.d/conda.sh
+export CONDA_PKGS_DIRS=$HOME/conda/pkgs      # 공용 캐시 쓰기 불가한 서버 대비
+conda activate kogo
+
+export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
+export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026
+cd /data1/dansay/run/pangenome_run            # 산출물이 여기 생김
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all
+```
 
 ---
 
-## 1. 폴더 구조 (압축 풀면 이래야 함)
+## 1. 폴더 구조
 
 ```
 kogo_day2_pkg/

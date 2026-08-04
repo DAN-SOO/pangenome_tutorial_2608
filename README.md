@@ -31,7 +31,8 @@
 
 | # | 문서 | 내용 |
 |---|---|---|
-| — | [GUIDE.md](docs/GUIDE.md) | **빠른 시작** — 서버에서 압축 풀고 실행하는 방법 |
+| — | [**SETUP.md**](docs/SETUP.md) | **설치·실행 절차** — clone부터 결과 확인까지 단계별 |
+| — | [GUIDE.md](docs/GUIDE.md) | 실행 요약 · SLURM 예시 · 산출물 구조 |
 | 1 | [교육자료_판지놈실습](docs/01_교육자료_판지놈실습.md) | **초보자용** — 각 단계를 왜 하는지, 결과를 어떻게 해석하는지 |
 | 2 | [GFA·GBZ 이해](docs/02_GFA_GBZ_이해.md) | 판지놈 파일 포맷 — GFA / rGFA / GBZ 개념과 실무 포인트 |
 | 3 | [DeepVariant 이해](docs/03_DeepVariant_이해.md) | 딥러닝 변이 호출 원리 + 판지놈 버전의 차이 |
@@ -47,37 +48,53 @@
 > 워크숍에서 배포된 데이터와 툴 바이너리·컨테이너 이미지를 아래 구조로 직접 배치해야
 > 실행됩니다. 라이선스·용량 문제로 재배포하지 않습니다.
 
-### 1단계 — 저장소를 받고 데이터를 배치
+### 경로 3분리 — 데이터는 공유, 코드·산출물은 각자
+
+스크립트는 세 위치를 **독립적으로** 다룹니다. 여러 사람이 같은 데이터를 쓰면서 각자 자기
+디렉터리에서 작업할 수 있고, **공유 데이터 폴더에는 아무것도 쓰지 않습니다**(읽기 전용 마운트여도 동작).
+
+| 구분 | 무엇 | 어떻게 정해지나 |
+|---|---|---|
+| **CODE** | 이 저장소 (스크립트·문서) | 스크립트 위치에서 자동 |
+| **DATA** | `01_data_prepare/`, `tools/` — 공유·읽기 전용 | `$KOGO_DATA` → 없으면 코드 옆/상위 자동 탐색 |
+| **WORK** | 모든 산출물 | 2번째 인자 → `$KOGO_OUT` → **현재 디렉터리**`/kogo_run` |
+
+> 단계별 상세 안내는 **[docs/SETUP.md](docs/SETUP.md)** 에 있습니다 (private 저장소 인증,
+> SLURM 배치, 결과 확인, 문제 해결 포함).
+
+### 1단계 — 원하는 디렉터리에 clone하고 데이터 위치 지정
 
 ```bash
-git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git
-cd pangenome_tutorial_2608
+# 원하는 위치에 clone (마지막 인자가 목적지 — 홈이 아니어도 됩니다)
+git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git \
+    /data1/dansay/tools/pangenome_tutorial_2608
 
-# 워크숍 배포 데이터·툴을 저장소 루트에 배치 (또는 심볼릭 링크)
-ln -s /경로/01_data_prepare  01_data_prepare
-ln -s /경로/tools            tools
+# 이후 편의를 위한 변수 (~/.bashrc 에 넣어두면 매번 안 써도 됩니다)
+export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
+export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026     # 공유 데이터 위치
 ```
 
-배치 후 구조 — **`01_data_prepare/`와 `tools/`가 저장소 루트에 있어야 합니다**:
+`$KOGO_DATA` 아래에 있어야 하는 구조 — **이 저장소에는 포함돼 있지 않습니다**:
 
 ```
-pangenome_tutorial_2608/
+$KOGO_DATA/
 ├── 01_data_prepare/
 │   ├── 00_toy_pangenome/     # OUR.gbz, OUR.full.gbz, OUR.gfa.gz, OUR.hapl,
 │   │                         # OUR.vcf.gz(+.tbi), GRCh38.chr2_1-5Mb.fa(+.fai)
 │   └── 01_srWGS/             # HG00438_{1,2}.fq.gz, HG02257_{1,2}.fq.gz
-├── tools/
-│   ├── vg167_kmc324/bin/     # vg 1.67.0 + KMC 3.2.4  (실습2-① 전용)
-│   ├── vg174_kmc324/bin/     # vg 1.74.1              (매핑·콜·surject)
-│   └── deepvariant_pangenome_aware_1.8.0.sif          # 실습3 (약 3.1GB)
-├── scripts/ docs/ figures/ results/     # ← 이 저장소가 제공하는 부분
-└── kogo_run/                            # 실행 시 생성되는 산출물
+└── tools/
+    ├── vg167_kmc324/bin/     # vg 1.67.0 + KMC 3.2.4  (실습2-① 전용)
+    ├── vg174_kmc324/bin/     # vg 1.74.1              (매핑·콜·surject)
+    └── deepvariant_pangenome_aware_1.8.0.sif          # 실습3 (약 3.1GB)
 ```
 
-배치가 맞는지 확인 (체크섬 검증):
+> 데이터를 저장소 안에 두고 쓰던 기존 방식(저장소 루트에 `01_data_prepare/`·`tools/` 배치
+> 또는 심볼릭 링크)도 그대로 동작합니다 — 그 경우 `KOGO_DATA` 없이 자동 인식됩니다.
+
+데이터가 제대로 있는지 확인 (체크섬 검증):
 
 ```bash
-bash scripts/check_data.sh
+bash "$KOGO_CODE/scripts/check_data.sh"
 # → "일치 19 / 없음 0 / 불일치 0" 이면 준비 완료
 ```
 
@@ -87,23 +104,40 @@ bash scripts/check_data.sh
 ### 2단계 — 환경 구성 및 실행
 
 ```bash
-bash scripts/00_setup_env.sh              # conda/mamba 환경 'kogo' 생성
+bash "$KOGO_CODE/scripts/00_setup_env.sh"     # conda 환경 'kogo' 생성 (1회)
+conda activate kogo
 
-bash scripts/run_all_kogo_day2.sh all     # 전체 (실습1→2→3)
-bash scripts/run_all_kogo_day2.sh 1       # 실습1만 (bcftools·panacus만 필요)
-bash scripts/run_all_kogo_day2.sh 2       # 실습2만
-bash scripts/run_all_kogo_day2.sh 3       # 실습3만
+# 자기 작업 폴더로 이동해서 실행 — 산출물이 여기에 생깁니다
+mkdir -p /data1/dansay/run/pangenome_run && cd /data1/dansay/run/pangenome_run
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all   # 전체 (실습1→2→3)
 ```
 
-스크립트는 **자기 위치에서 저장소 루트를 자동 감지**합니다(`scripts/` 하위에 있어도 상위를
-ROOT로 인식). 데이터를 다른 곳에 두었다면 환경변수로 지정하세요:
+phase를 나눠서도 실행할 수 있습니다:
 
 ```bash
-KOGO_ROOT=/데이터/경로 bash scripts/run_all_kogo_day2.sh all
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 1   # 실습1만 (bcftools·panacus)
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 2   # 실습2만 (KMC·vg)
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 3   # 실습3만 (surject·DeepVariant)
 ```
 
-산출물은 `kogo_run/` 하위에 생성되며 **입력 데이터는 변경하지 않습니다**. 필수 입력이
-없으면 스크립트가 어떤 파일이 어디에 있어야 하는지 안내하고 종료합니다.
+**산출물 위치 지정** — 기본은 `현재 디렉터리/kogo_run` 입니다. 바꾸려면:
+
+```bash
+KOGO_OUT=/scratch/$USER/kogo_run bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all
+# 또는 2번째 인자로:
+bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all /scratch/$USER/kogo_run
+```
+
+실행 시작할 때 세 경로를 출력하니 확인하세요:
+
+```
+[INFO] CODE  = /data1/dansay/tools/pangenome_tutorial_2608/scripts
+[INFO] DATA  = /data1/dansay/test/pangenome_kogo_2026        (읽기 전용)
+[INFO] WORK  = /data1/dansay/run/pangenome_run/kogo_run      (산출물)
+```
+
+필수 입력이 없으면 어떤 파일이 어디에 있어야 하는지 안내하고 종료합니다. 산출물 폴더를
+공유 데이터 폴더 안에 지정하면 경고가 나옵니다.
 
 ### 환경 요구사항
 
