@@ -25,9 +25,9 @@ export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
 # 1) 공유 데이터 위치 지정 (~/.bashrc 에 넣어두면 매번 안 써도 됩니다)
 export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026
 
-# 2) conda 환경 (최초 1회) — mamba/conda 필요
+# 2) conda 환경 (최초 1회, 이미 있으면 생략) — 위치는 /data1/dansay/conda/envs/kogo 로 고정
+#    마스터 스크립트가 자동 활성화하므로 conda activate 는 하지 않아도 됩니다.
 bash "$KOGO_CODE/scripts/00_setup_env.sh"
-conda activate kogo
 bash "$KOGO_CODE/scripts/check_data.sh"          # 데이터 배치 확인 (일치 19 / 없음 0)
 
 # 3) 자기 작업 폴더에서 실행 — 산출물이 여기 생깁니다
@@ -43,6 +43,7 @@ bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 3          # 실습3 (pangenome-a
 
 | 구분 | 결정 방식 | 쓰기 |
 |---|---|---|
+| **CONDA** | `$KOGO_ENV` → 기본 `/data1/dansay/conda/envs/kogo` (자동 활성화) | — |
 | **CODE** | 스크립트 위치에서 자동 | 안 함 |
 | **DATA** | `$KOGO_DATA` → 없으면 코드 옆/상위 자동 탐색 | **안 함** (읽기 전용 OK) |
 | **WORK** | 2번째 인자 → `$KOGO_OUT` → **현재 디렉터리**`/kogo_run` | 여기만 |
@@ -63,9 +64,8 @@ bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 3          # 실습3 (pangenome-a
 #SBATCH --mem=64G
 #SBATCH --output=kogo_day2.%j.log
 
-source /path/to/conda/etc/profile.d/conda.sh
-export CONDA_PKGS_DIRS=$HOME/conda/pkgs      # 공용 캐시 쓰기 불가한 서버 대비
-conda activate kogo
+source /data1/software/anaconda3/etc/profile.d/conda.sh   # conda 를 PATH 에만 올림
+#  환경 activate 는 마스터 스크립트가 KOGO_ENV(기본 /data1/dansay/conda/envs/kogo) 로 자동 처리
 
 export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
 export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026
@@ -197,8 +197,12 @@ kogo_run/
 
 ## 5. 문제 해결
 
-- **`conda activate kogo` 실패** → `bash 00_setup_env.sh` 먼저. mamba/conda 자체가
-  없으면 동봉된 `Miniforge3-Linux-x86_64.sh`로 설치.
+- **`[WARN] conda activate ... 실패`** → 지정된 환경이 없는 것.
+  `bash "$KOGO_CODE/scripts/00_setup_env.sh"` 로 만들거나, 이미 다른 환경이 있으면
+  `export KOGO_ENV=<경로 또는 이름>` (활성화된 환경을 그대로 쓰려면 `KOGO_ENV=skip`).
+  mamba/conda 자체가 없으면 동봉된 `Miniforge3-Linux-x86_64.sh`로 설치.
+- **`[WARN] conda 를 찾을 수 없습니다`** → sbatch 스크립트에서
+  `source <conda설치경로>/etc/profile.d/conda.sh` 를 먼저 실행했는지 확인.
 - **growth curve `[WARN]`** → panacus 버전에 따라 `-O` 관련 크래시가 날 수 있음.
   스크립트는 이 단계 실패가 변이 분석을 막지 않도록 격리해 두었으니 나머지는 정상 진행.
 - **실습3 DeepVariant** → 이 패키지는 공유메모리 미사용 방식이라 `/dev/shm`

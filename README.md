@@ -55,6 +55,7 @@
 
 | 구분 | 무엇 | 어떻게 정해지나 |
 |---|---|---|
+| **CONDA** | 실행 환경 (bcftools·panacus 등) | `$KOGO_ENV` → 기본 `/data1/dansay/conda/envs/kogo` (자동 활성화) |
 | **CODE** | 이 저장소 (스크립트·문서) | 스크립트 위치에서 자동 |
 | **DATA** | `01_data_prepare/`, `tools/` — 공유·읽기 전용 | `$KOGO_DATA` → 없으면 코드 옆/상위 자동 탐색 |
 | **WORK** | 모든 산출물 | 2번째 인자 → `$KOGO_OUT` → **현재 디렉터리**`/kogo_run` |
@@ -104,8 +105,7 @@ bash "$KOGO_CODE/scripts/check_data.sh"
 ### 2단계 — 환경 구성 및 실행
 
 ```bash
-bash "$KOGO_CODE/scripts/00_setup_env.sh"     # conda 환경 'kogo' 생성 (1회)
-conda activate kogo
+bash "$KOGO_CODE/scripts/00_setup_env.sh"     # conda 환경 생성 (1회, 이미 있으면 생략)
 
 # 자기 작업 폴더로 이동해서 실행 — 산출물이 여기에 생깁니다
 mkdir -p /data1/dansay/run/pangenome_run && cd /data1/dansay/run/pangenome_run
@@ -131,6 +131,7 @@ bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all /scratch/$USER/kogo_run
 실행 시작할 때 세 경로를 출력하니 확인하세요:
 
 ```
+[INFO] CONDA = /data1/dansay/conda/envs/kogo
 [INFO] CODE  = /data1/dansay/tools/pangenome_tutorial_2608/scripts
 [INFO] DATA  = /data1/dansay/test/pangenome_kogo_2026        (읽기 전용)
 [INFO] WORK  = /data1/dansay/run/pangenome_run/kogo_run      (산출물)
@@ -205,7 +206,8 @@ SLURM 환경 예시와 HPC별 함정은 [docs/GUIDE.md](docs/GUIDE.md)를 참조
 | growth curve TSV가 0바이트 | panacus 0.5.x 버그 → **`panacus=0.4.1` 고정** |
 | DeepVariant `RuntimeError: File exists` | 공용 서버 `/dev/shm` 이름 충돌 → **3단계 직접 호출**(공유메모리 미사용) |
 | `apptainer: command not found` | singularity만 있는 서버 → PATH 앞에 `exec singularity "$@"` shim |
-| conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → `export CONDA_PKGS_DIRS=<개인경로>` |
+| conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → setup 스크립트가 개인 캐시를 자동 사용 (수동: `export CONDA_PKGS_DIRS=<개인경로>`) |
+| `[WARN] conda activate ... 실패` | 지정 환경 없음 → `bash "$KOGO_CODE/scripts/00_setup_env.sh"` 또는 `export KOGO_ENV=<경로\|이름\|skip>` |
 | `vg haplotypes` 포맷 오류 | `.hapl`이 구포맷 → 이 단계만 **vg 1.67.0** |
 | macOS에서 집단특이가 0 | BSD grep은 `-P` 미지원 → `-E`로 치환 |
 

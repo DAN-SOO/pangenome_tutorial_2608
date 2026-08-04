@@ -67,10 +67,26 @@ else
     DATA_ROOT="$(dirname "${CODE_DIR}")"             # 미배치 — need()가 안내 출력
 fi
 
-# ---- conda 활성화 (있으면) ---------------------------------------------------
-if command -v conda >/dev/null 2>&1; then
+# ---- conda 환경 활성화 -------------------------------------------------------
+#  기본은 아래 KOGO_ENV 경로(prefix)를 그대로 씁니다. 다른 환경을 쓰려면
+#    export KOGO_ENV=/내/경로/envs/kogo     (경로) 또는
+#    export KOGO_ENV=kogo                   (이름)
+#  이미 원하는 환경을 activate 한 상태라면  KOGO_ENV=skip  으로 건너뛸 수 있습니다.
+KOGO_ENV="${KOGO_ENV:-/data1/dansay/conda/envs/kogo}"
+
+if [[ "$KOGO_ENV" == "skip" ]]; then
+    echo "[INFO] CONDA = (skip — 현재 활성 환경 사용: ${CONDA_PREFIX:-none})"
+elif command -v conda >/dev/null 2>&1; then
     eval "$(conda shell.bash hook)"
-    conda activate kogo 2>/dev/null || echo "[WARN] 'conda activate kogo' 실패 — kogo 환경 없이 진행" >&2
+    if conda activate "$KOGO_ENV" 2>/dev/null; then
+        echo "[INFO] CONDA = ${CONDA_PREFIX}"
+    else
+        echo "[WARN] conda activate '$KOGO_ENV' 실패 — 환경 없이 진행합니다." >&2
+        echo "       환경을 만들려면: bash ${CODE_DIR}/00_setup_env.sh" >&2
+        echo "       다른 환경을 쓰려면: export KOGO_ENV=<경로 또는 이름>" >&2
+    fi
+else
+    echo "[WARN] conda 를 찾을 수 없습니다 — 환경 없이 진행합니다." >&2
 fi
 set -u
 
