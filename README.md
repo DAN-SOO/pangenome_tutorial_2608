@@ -1,0 +1,174 @@
+# KOGO 2026 판지놈(Pangenome) 실습 — 재현 파이프라인과 교육자료
+
+2026 KOGO 통계유전학 워크숍 Day2 판지놈 실습을 **자체 HPC(SLURM)에서 처음부터 끝까지
+재현**한 기록입니다. 실행 스크립트, 단계별 코드 레퍼런스, 초보자용 교육자료, 그리고
+강사 정답과의 대조 검증 결과를 담았습니다.
+
+- **대상 데이터:** toy 판지놈 (GRCh38 chr2:1–5Mb), 구축 샘플 4명 + 대조 CHM13,
+  판지놈 미포함 신규 short-read 샘플 2명 (HG00438, HG02257)
+- **검증 결과:** 17개 항목 중 **16개가 강사 정답과 정확히 일치** (나머지 1개는 원인 규명 완료)
+- **소요 시간:** 전체 파이프라인 16분 16초 (SLURM 단일 잡)
+
+![파이프라인 전체 흐름](figures/kogo_pipeline_overview.png)
+
+---
+
+## 실습 구성 (3부)
+
+| 실습 | 내용 | 핵심 도구 | 입력 |
+|---|---|---|---|
+| **1** | 판지놈 구축 VCF 분석 — growth curve, 변이 타입 분류, 집단·개인 특이 변이 | panacus, bcftools | `OUR.gfa.gz`, `OUR.vcf.gz` |
+| **2** | 신규 샘플 SV genotyping | KMC, vg (giraffe/pack/call) | `OUR.gbz`, `OUR.hapl`, FASTQ |
+| **3** | 신규 샘플 small variant calling | vg surject, pangenome-aware DeepVariant, GLnexus | GAM, GRCh38 FASTA, `OUR.gbz` |
+
+> **중요한 개념 구분:** 실습 1은 *판지놈에 이미 담긴* 샘플을 분석하고, 실습 2·3은
+> *판지놈에 없는 새 샘플*을 분석합니다. 실습 2는 **아는 변이의 유전형 판정(genotyping)**,
+> 실습 3은 **변이를 새로 찾기(calling)** 로 목적이 다릅니다. 두 갈래는 서로 독립입니다.
+
+---
+
+## 문서 (읽는 순서 권장)
+
+| # | 문서 | 내용 |
+|---|---|---|
+| — | [GUIDE.md](docs/GUIDE.md) | **빠른 시작** — 서버에서 압축 풀고 실행하는 방법 |
+| 1 | [교육자료_판지놈실습](docs/01_교육자료_판지놈실습.md) | **초보자용** — 각 단계를 왜 하는지, 결과를 어떻게 해석하는지 |
+| 2 | [GFA·GBZ 이해](docs/02_GFA_GBZ_이해.md) | 판지놈 파일 포맷 — GFA / rGFA / GBZ 개념과 실무 포인트 |
+| 3 | [DeepVariant 이해](docs/03_DeepVariant_이해.md) | 딥러닝 변이 호출 원리 + 판지놈 버전의 차이 |
+| 4 | [참고문헌 읽기 가이드](docs/04_참고문헌_읽기가이드.md) | 논문의 **어느 그림·절**을 보면 이해가 빠른지 |
+| 5 | [단계별 코드 레퍼런스](docs/05_단계별_코드레퍼런스.md) | 모든 명령의 **입력·출력·옵션 의미** 완전 정리 |
+| 6 | [**주요 결과 정리**](docs/06_주요결과_정리.md) | **결과 수치와 해석 + 강사 정답 대조 검증** |
+
+---
+
+## 빠른 시작
+
+```bash
+# 1) 데이터·툴·스크립트를 한 폴더에 배치 (아래 "필요한 데이터" 참조)
+cd /path/to/pangenome_kogo_2026
+
+# 2) 실행 환경 구성 (conda/mamba)
+bash scripts/00_setup_env.sh
+
+# 3) 전체 실행 — 또는 phase를 1/2/3으로 나눠 실행
+bash scripts/run_all_kogo_day2.sh all
+bash scripts/run_all_kogo_day2.sh 1        # 실습1만
+```
+
+스크립트는 **자기 위치를 자동 감지**하므로 어느 경로에 두어도 동작합니다. 산출물은
+`kogo_run/` 하위에 생성되며 입력 데이터는 변경하지 않습니다.
+
+### 필요한 데이터 (저장소에 미포함 — 용량 문제)
+
+```
+pangenome_kogo_2026/
+├── 01_data_prepare/
+│   ├── 00_toy_pangenome/     # OUR.gbz, OUR.full.gbz, OUR.gfa.gz, OUR.hapl,
+│   │                         # OUR.vcf.gz(+.tbi), GRCh38.chr2_1-5Mb.fa(+.fai)
+│   └── 01_srWGS/             # HG00438_{1,2}.fq.gz, HG02257_{1,2}.fq.gz
+├── tools/
+│   ├── vg167_kmc324/bin/     # vg 1.67.0 + KMC 3.2.4
+│   ├── vg174_kmc324/bin/     # vg 1.74.1
+│   └── deepvariant_pangenome_aware_1.8.0.sif
+└── scripts/ docs/ figures/   # 이 저장소
+```
+
+**환경 요구사항:** Linux x86_64 (vg·KMC·DeepVariant는 이 플랫폼 전용),
+apptainer 또는 singularity, conda/mamba. 실습 1만 실행한다면 macOS에서도 가능합니다
+(단 `grep -P` → `-E` 치환 필요).
+
+---
+
+## 주요 결과 요약
+
+### 실습 1 — 판지놈 구축 VCF (총 19,877 변이)
+
+| 항목 | 결과 |
+|---|---|
+| 변이 타입 | SNV **16,149** (81%) · non-SNV **3,728** · 그중 SV(≥50bp) **415** |
+| 집단 특이 (vs CHM13) | SNV **10,430** (65%) · non-SNV **2,047** · SV **202** (49%) |
+| Growth curve | sample01 63,470 bp → sample04 누적 **98,382 bp** (증가폭 15,782 → 6,104으로 감소) |
+| 코어 vs 액세서리 | 4명 전원 공유(코어) **36,041 bp** = 전체의 **약 37%** |
+
+![growth curve 해석](figures/growth_curve_explained.png)
+
+### 실습 2 — 신규 샘플 SV genotyping
+
+| 샘플 | 전체 read | 그래프 정렬 | 비율 |
+|---|---|---|---|
+| HG00438 | 1,230,694 | 805,888 | 65.5% |
+| HG02257 | 1,265,686 | 814,909 | 64.4% |
+
+최종 `Total_merged.chr2_1-5Mb.vcf.gz` — **5,040개** (병합 + PASS 필터)
+
+### 실습 3 — 신규 샘플 small variant calling
+
+| 항목 | 결과 |
+|---|---|
+| surject (HG00438) | mapped **804,384 (65.36%)** — 그래프→선형 좌표 변환 손실 0.2% |
+| DeepVariant 샘플별 | HG00438 **21,838** · HG02257 **21,733** |
+| GLnexus 통합 | unify 단계 **6,712** 사이트 (대립 5,955개 품질 탈락) → 최종 VCF 레코드 **6,703** |
+
+---
+
+## 검증 — 강사 정답과의 대조
+
+강사가 제공한 정답 출력 파일과 재현 결과를 직접 비교했습니다.
+
+**17개 항목 중 16개 완전 일치.** 유일한 차이는 GLnexus 통합 단계(재현 6,703 vs 강사
+6,696, **일치율 99.87%**)이며, 원인을 규명했습니다: 입력 per-sample VCF와 GLnexus 버전은
+동일하고(`v1.4.1-0-g68e25e5`), 차이 나는 9개 사이트는 **모두 DP 2~3의 극저커버리지
+저품질 변이**입니다. 통상적인 depth 필터(DP≥10)를 적용하면 차이가 사라집니다.
+
+전체 대조 표와 상세 해석: [docs/06_주요결과_정리.md](docs/06_주요결과_정리.md)
+
+---
+
+## 재현 시 알아두면 좋은 함정
+
+| 문제 | 해결 |
+|---|---|
+| growth curve TSV가 0바이트 | panacus 0.5.x 버그 → **`panacus=0.4.1` 고정** |
+| DeepVariant `RuntimeError: File exists` | 공용 서버 `/dev/shm` 이름 충돌 → **3단계 직접 호출**(공유메모리 미사용) |
+| `apptainer: command not found` | singularity만 있는 서버 → PATH 앞에 `exec singularity "$@"` shim |
+| conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → `export CONDA_PKGS_DIRS=<개인경로>` |
+| `vg haplotypes` 포맷 오류 | `.hapl`이 구포맷 → 이 단계만 **vg 1.67.0** |
+| macOS에서 집단특이가 0 | BSD grep은 `-P` 미지원 → `-E`로 치환 |
+
+---
+
+## 도구 버전
+
+| 도구 | 버전 | 용도 |
+|---|---|---|
+| vg | 1.67.0 | `vg haplotypes` (구 `.hapl` 포맷 호환) |
+| vg | 1.74.1 | giraffe · pack · call · surject |
+| KMC | 3.2.4 | k-mer 계수 |
+| panacus | **0.4.1** (고정 필수) | growth curve |
+| bcftools / htslib | 1.22 계열 | VCF 조작 |
+| GLnexus | v1.4.1 | 다중샘플 공동 genotyping |
+| DeepVariant | pangenome-aware 1.8.0 | small variant calling |
+
+---
+
+## 참고 문헌
+
+- Li H, Feng X, Chu C (2020). *The design and construction of reference pangenome graphs
+  with minigraph.* **Genome Biology** 21:265. doi:10.1186/s13059-020-02168-z
+- Poplin R, et al. (2018). *A universal SNP and small-indel variant caller using deep
+  neural networks.* **Nature Biotechnology** 36:983–987. doi:10.1038/nbt.4235
+- Asri M, et al. (2025). *Pangenome-aware DeepVariant.* **bioRxiv** 2025.06.05.657102.
+  doi:10.1101/2025.06.05.657102
+- Sirén J, et al. (2021). *Pangenomics enables genotyping of known structural variants in
+  5202 diverse genomes.* **Science** 374:abg8871. (vg giraffe)
+- [GFA-spec](https://github.com/GFA-spec/GFA-spec) — GFA 포맷 명세
+- [vg](https://github.com/vgteam/vg) · [panacus](https://github.com/marschall-lab/panacus)
+  · [DeepVariant](https://github.com/google/deepvariant) · [GLnexus](https://github.com/dnanexus-rnd/GLnexus)
+
+---
+
+## 감사
+
+실습 데이터·스크립트·정답 출력을 제공해 주신 2026 KOGO 통계유전학 워크숍 강사·조교분들께
+감사드립니다. 이 저장소의 스크립트는 강사 원본 코드를 기반으로 하며, 경로 이식성과
+환경 호환성 부분만 수정했습니다.
