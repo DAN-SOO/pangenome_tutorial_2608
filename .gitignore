@@ -1,0 +1,23 @@
+# 대용량 입력 데이터 · 툴 (저장소에 포함하지 않음)
+01_data_prepare/
+tools/
+*.sif
+*.gbz
+*.gfa
+*.gfa.gz
+*.hapl
+*.fq.gz
+*.fastq.gz
+*.bam
+*.bai
+*.gam
+*.pack
+*.kff
+
+# 실행 산출물 (results/ 의 요약 파일만 커밋)
+kogo_run/
+*.log
+GLnexus.DB/
+
+# OS
+.DS_Store

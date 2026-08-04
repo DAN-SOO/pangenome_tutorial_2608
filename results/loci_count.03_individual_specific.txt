@@ -1,0 +1,20 @@
+# 개인 특이 변이 (한 샘플에만 있고 나머지 our 3명에는 없음)
+# 출처: kogo_run/03_variant_analysis/03_individual_spec_var/*/loci_count.txt
+
+SNVs_only_spec/
+  sample01_spec.vcf.gz   1558
+  sample02_spec.vcf.gz    923
+  sample03_spec.vcf.gz   1162
+  sample04_spec.vcf.gz    834
+
+non_SNVs_spec/
+  sample01_spec.vcf.gz    262
+  sample02_spec.vcf.gz    161
+  sample03_spec.vcf.gz    210
+  sample04_spec.vcf.gz    130
+
+SVs_spec/
+  sample01_spec.vcf.gz     29
+  sample02_spec.vcf.gz     13
+  sample03_spec.vcf.gz     22
+  sample04_spec.vcf.gz     14

@@ -1,0 +1,21 @@
+SNVs_only.vcf.gz
+Number of samples: 5
+Number of SNPs:    16149
+Number of INDELs:  0
+Number of MNPs:    0
+Number of others:  0
+Number of sites:   16149
+non_SNVs.vcf.gz
+Number of samples: 5
+Number of SNPs:    234
+Number of INDELs:  3263
+Number of MNPs:    453
+Number of others:  226
+Number of sites:   3728
+SVs.vcf.gz
+Number of samples: 5
+Number of SNPs:    0
+Number of INDELs:  388
+Number of MNPs:    34
+Number of others:  87
+Number of sites:   415

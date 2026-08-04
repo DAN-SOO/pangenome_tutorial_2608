@@ -1,0 +1,11 @@
+# panacus ordered-histgrowth -c bp -l 1,2,1,1,1 -q 0,0,1,0.5,0.1 -S -e ref.txt -O subset.txt OUR.gfa
+# version 
+panacus	ordered-growth	ordered-growth	ordered-growth	ordered-growth	ordered-growth
+count	bp	bp	bp	bp	bp
+coverage	1	2	1	1	1
+quorum	0	0	1	0.5	0.1
+sample01	63470	41309	63470	63470	63470
+sample02	79252	51659	63470	79252	79252
+sample03	92278	54779	42655	79252	92278
+sample04	98382	54779	36041	82372	98382
+
