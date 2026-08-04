@@ -68,10 +68,11 @@
 ```bash
 # 원하는 위치에 clone (마지막 인자가 목적지 — 홈이 아니어도 됩니다)
 git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git \
-    /data1/dansay/tools/pangenome_tutorial_2608
+    <작업 디렉토리>
 
 # 이후 편의를 위한 변수 (~/.bashrc 에 넣어두면 매번 안 써도 됩니다)
-export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
+# KOGO_DATA는 고정 변수입니다. 혹은 데이터 복사해가도 됩니다. 
+export KOGO_CODE=<작업 디렉토리>
 export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026     # 공유 데이터 위치
 ```
 
