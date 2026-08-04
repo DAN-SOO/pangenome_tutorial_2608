@@ -109,7 +109,7 @@ bash "$KOGO_CODE/scripts/check_data.sh"
 bash "$KOGO_CODE/scripts/00_setup_env.sh"     # conda 환경 생성 (1회, 이미 있으면 생략)
 
 # 자기 작업 폴더로 이동해서 실행 — 산출물이 여기에 생깁니다
-mkdir -p /data1/dansay/run/pangenome_run && cd /data1/dansay/run/pangenome_run
+mkdir -p ./pangenome_run && cd ./pangenome_run
 bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all   # 전체 (실습1→2→3)
 ```
 
