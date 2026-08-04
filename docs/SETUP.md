@@ -276,6 +276,6 @@ export KOGO_ENV=skip                  # 이미 activate 한 환경 그대로
 | `ERROR: 필수 입력이 없습니다` | `KOGO_DATA`가 안 잡혔거나 경로가 틀림 → `echo $KOGO_DATA` 확인 |
 | `ERROR: 산출물 폴더를 만들 수 없습니다` | 쓰기 권한 없는 곳에서 실행 → 개인 폴더로 `cd` 또는 `KOGO_OUT` 지정 |
 | growth curve TSV가 0바이트 | panacus 0.5.x 버그 → `mamba install -n kogo panacus=0.4.1` |
-| `apptainer: command not found` | singularity만 있는 서버 → `mkdir -p ~/bin && printf '#!/bin/bash\nexec singularity "$@"\n' > ~/bin/apptainer && chmod +x ~/bin/apptainer && export PATH=~/bin:$PATH` |
+| `apptainer/singularity 를 찾을 수 없습니다` | 스크립트가 둘 중 있는 것을 자동으로 씁니다. 둘 다 없으면 모듈 로드(`module load singularity`) 또는 경로 지정: `export KOGO_CONTAINER=/usr/local/bin/singularity` |
 | conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → `export CONDA_PKGS_DIRS=$HOME/conda/pkgs` |
 | 집단특이 결과가 0 (macOS) | BSD grep은 `-P` 미지원 → Linux에서는 정상, macOS면 `grep -P`를 `-E`로 치환 |

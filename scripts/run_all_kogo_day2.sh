@@ -547,6 +547,24 @@ phase3() {
   # --- 3-② pangenome-aware DeepVariant (공유메모리 없이 3단계 직접 호출) + GLnexus ---
   #  강사 수정본: run_pangenome_aware_deepvariant(고정이름 공유메모리) 대신
   #  make_examples → call_variants → postprocess 를 직접 호출 → /dev/shm 충돌 없음.
+
+  # 컨테이너 런타임 자동 감지: apptainer 또는 singularity (둘은 CLI 호환)
+  #   강제 지정: export KOGO_CONTAINER=/path/to/singularity
+  local CONTAINER_CMD="${KOGO_CONTAINER:-}"
+  if [[ -z "$CONTAINER_CMD" ]]; then
+      if   command -v apptainer   >/dev/null 2>&1; then CONTAINER_CMD=apptainer
+      elif command -v singularity >/dev/null 2>&1; then CONTAINER_CMD=singularity
+      fi
+  fi
+  if [[ -z "$CONTAINER_CMD" ]] || ! command -v "$CONTAINER_CMD" >/dev/null 2>&1; then
+      echo "ERROR: apptainer/singularity 를 찾을 수 없습니다 — DeepVariant 를 실행할 수 없습니다." >&2
+      echo "       둘 중 하나가 PATH 에 있어야 합니다. 경로를 직접 지정할 수도 있습니다:" >&2
+      echo "         export KOGO_CONTAINER=/usr/local/bin/singularity" >&2
+      echo "       (모듈 시스템이면: module load singularity  또는  module load apptainer)" >&2
+      return 1
+  fi
+  echo "[INFO] CONTAINER = $(command -v "$CONTAINER_CMD")  ($("$CONTAINER_CMD" --version 2>&1 | head -1))"
+
   local INPUTD=input OUTPUTD=output JOINTD=joint
   mkdir -p ${INPUTD} ${OUTPUTD} ${JOINTD}
   local REFB=$(basename "$REF") PANB=$(basename "$PANGENOME")
@@ -565,7 +583,7 @@ phase3() {
     cp surject/${SAMPLE}.grch38.${TAG}.bam surject/${SAMPLE}.grch38.${TAG}.bam.bai ${INPUTD}/
     local BAMB=${SAMPLE}.grch38.${TAG}.bam
     local TMPD=tmp_${SAMPLE}; rm -rf ${TMPD}; mkdir -p ${TMPD}
-    apptainer exec \
+    "${CONTAINER_CMD}" exec \
       --bind "$(pwd)/${INPUTD}:/input" \
       --bind "$(pwd)/${OUTPUTD}:/output" \
       --bind "$(pwd)/${TMPD}:/work" \

@@ -68,11 +68,10 @@
 ```bash
 # 원하는 위치에 clone (마지막 인자가 목적지 — 홈이 아니어도 됩니다)
 git clone https://github.com/DAN-SOO/pangenome_tutorial_2608.git \
-    <작업 디렉토리>
+    /data1/dansay/tools/pangenome_tutorial_2608
 
 # 이후 편의를 위한 변수 (~/.bashrc 에 넣어두면 매번 안 써도 됩니다)
-# KOGO_DATA는 고정 변수입니다. 혹은 데이터 복사해가도 됩니다. 
-export KOGO_CODE=<작업 디렉토리>
+export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
 export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026     # 공유 데이터 위치
 ```
 
@@ -146,7 +145,7 @@ bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all /scratch/$USER/kogo_run
 | 실행 범위 | 요구사항 |
 |---|---|
 | **실습1만** | conda/mamba + bcftools · **panacus 0.4.1** · cyvcf2 — macOS도 가능\* |
-| **실습2·3** | **Linux x86_64** (vg·KMC·DeepVariant는 이 플랫폼 전용) + apptainer 또는 singularity |
+| **실습2·3** | **Linux x86_64** (vg·KMC·DeepVariant는 이 플랫폼 전용) + **apptainer 또는 singularity** (자동 감지) |
 
 \* macOS에서는 BSD grep이 `-P`를 지원하지 않아 집단특이 단계에서 빈 결과가 나옵니다
 (`grep -P` → `-E` 치환 필요). Linux GNU grep에서는 원본 그대로 동작합니다.
@@ -206,7 +205,7 @@ SLURM 환경 예시와 HPC별 함정은 [docs/GUIDE.md](docs/GUIDE.md)를 참조
 |---|---|
 | growth curve TSV가 0바이트 | panacus 0.5.x 버그 → **`panacus=0.4.1` 고정** |
 | DeepVariant `RuntimeError: File exists` | 공용 서버 `/dev/shm` 이름 충돌 → **3단계 직접 호출**(공유메모리 미사용) |
-| `apptainer: command not found` | singularity만 있는 서버 → PATH 앞에 `exec singularity "$@"` shim |
+| `apptainer/singularity 를 찾을 수 없습니다` | 스크립트가 자동 감지하므로 보통 발생하지 않음. 모듈 시스템이면 `module load singularity`, 또는 `export KOGO_CONTAINER=<경로>` |
 | conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → setup 스크립트가 개인 캐시를 자동 사용 (수동: `export CONDA_PKGS_DIRS=<개인경로>`) |
 | `[WARN] conda activate ... 실패` | 지정 환경 없음 → `bash "$KOGO_CODE/scripts/00_setup_env.sh"` 또는 `export KOGO_ENV=<경로\|이름\|skip>` |
 | `vg haplotypes` 포맷 오류 | `.hapl`이 구포맷 → 이 단계만 **vg 1.67.0** |

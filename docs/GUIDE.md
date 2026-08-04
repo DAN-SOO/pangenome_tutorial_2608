@@ -206,6 +206,8 @@ kogo_run/
 - **growth curve `[WARN]`** → panacus 버전에 따라 `-O` 관련 크래시가 날 수 있음.
   스크립트는 이 단계 실패가 변이 분석을 막지 않도록 격리해 두었으니 나머지는 정상 진행.
 - **실습3 DeepVariant** → 이 패키지는 공유메모리 미사용 방식이라 `/dev/shm`
-  `RuntimeError: File exists` 충돌이 발생하지 않음. `apptainer`가 PATH에 있어야 함.
+  `RuntimeError: File exists` 충돌이 발생하지 않음. 컨테이너 런타임은 **apptainer/singularity
+  중 있는 것을 자동으로 사용**하며(`[INFO] CONTAINER =` 로 표시), 필요하면
+  `export KOGO_CONTAINER=<경로>` 로 지정할 수 있음.
 - **vg/kmc "command not found"** → tools/ 폴더가 ROOT 아래 그대로 있는지 확인.
   마스터 스크립트가 `tools/vg167_kmc324/bin`, `tools/vg174_kmc324/bin`을 자동 참조.
