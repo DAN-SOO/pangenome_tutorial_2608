@@ -48,7 +48,8 @@ set -eo pipefail
 #
 #  예) 공유 데이터 + 개인 작업공간
 #    export KOGO_DATA=/data1/share/pangenome_kogo_2026
-#    cd ~/my_pangenome_run && bash /path/to/repo/scripts/run_all_kogo_day2.sh all
+#    mkdir -p /work/my_run && cd /work/my_run
+#    bash /path/to/repo/scripts/run_all_kogo_day2.sh all      # → /work/my_run/kogo_run/
 # =============================================================================
 CODE_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
@@ -86,13 +87,14 @@ PHASE="${1:-all}"
 WORK="${2:-${KOGO_OUT:-${PWD}/kogo_run}}"
 if ! mkdir -p "$WORK" 2>/dev/null; then
     echo "ERROR: 산출물 폴더를 만들 수 없습니다 → $WORK" >&2
-    echo "       쓰기 권한이 있는 개인 폴더를 지정하세요:" >&2
-    echo "         KOGO_OUT=\$HOME/pangenome_run bash $0 ${PHASE}" >&2
+    echo "       쓰기 권한이 있는 폴더로 이동해 실행하거나, 위치를 직접 지정하세요:" >&2
+    echo "         cd /쓰기가능한/경로 && bash ${CODE_DIR}/$(basename "$0") ${PHASE}" >&2
+    echo "         KOGO_OUT=/쓰기가능한/경로/kogo_run bash ${CODE_DIR}/$(basename "$0") ${PHASE}" >&2
     exit 1
 fi
 if [[ ! -w "$WORK" ]]; then
     echo "ERROR: 산출물 폴더에 쓸 수 없습니다(읽기 전용) → $WORK" >&2
-    echo "       KOGO_OUT=\$HOME/pangenome_run 처럼 개인 폴더를 지정하세요." >&2
+    echo "       쓰기 권한이 있는 폴더로 이동해 실행하거나 KOGO_OUT 으로 지정하세요." >&2
     exit 1
 fi
 WORK="$(cd "$WORK" && pwd)"    # 절대경로로 정규화

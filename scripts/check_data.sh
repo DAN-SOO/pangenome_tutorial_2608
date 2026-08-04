@@ -3,7 +3,7 @@
 # 사용법: 저장소 루트에서  bash scripts/check_data.sh
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # 데이터가 놓인 곳은 저장소와 다를 수 있다 (공유 폴더 → KOGO_DATA 로 지정).
 _has_data() { [[ -d "$1/01_data_prepare" || -d "$1/tools" ]]; }
@@ -53,9 +53,10 @@ if (( ok + missing + bad == 0 )); then
 fi
 if (( missing == 0 && bad == 0 )); then
     echo "[OK] 데이터·툴 배치 완료."
-    echo "     이제 작업 폴더로 이동해 실행하세요 (산출물이 그 폴더에 생깁니다):"
-    echo "       mkdir -p ~/pangenome_run && cd ~/pangenome_run"
+    echo "     이제 산출물을 둘 작업 폴더로 이동해 실행하세요:"
+    echo "       mkdir -p ./pangenome_run && cd ./pangenome_run"
     echo "       bash ${SCRIPT_DIR}/run_all_kogo_day2.sh all"
+    echo "     (산출물은 실행한 디렉터리의 kogo_run/ 에 생깁니다)"
     exit 0
 fi
 if (( missing > 0 )); then
