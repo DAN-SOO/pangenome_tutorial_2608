@@ -133,6 +133,19 @@ cd /data1/dansay/run/pangenome_run
 bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all
 ```
 
+**SLURM 클러스터면 직접 실행 대신 제출하세요** (로그인 노드에서 무거운 계산 금지):
+
+```bash
+mkdir -p /data1/dansay/run/pangenome_run
+cd /data1/dansay/run/pangenome_run
+bash "$KOGO_CODE/scripts/submit_slurm.sh" all      # 또는 1 / 2 / 3
+```
+
+계정별로 고칠 것이 없습니다 — job 이름은 `kogo<PHASE>_$USER`, 산출물·로그는 현재 폴더에
+생깁니다. 제출 전 요약(파티션·자원·경로)을 보여주고 Job ID·확인 명령을 알려줍니다.
+서버가 `--account` 를 요구하면 `SLURM_ACCOUNT=<계정>` 을 앞에 붙이세요.
+자원은 `SLURM_PARTITION` `SLURM_CPUS` `SLURM_MEM` `SLURM_TIME` `CONDA_SH` 로 조정합니다.
+
 conda 환경은 스크립트가 알아서 활성화합니다. 시작 로그의 `[INFO] CONDA =` 줄로 확인하세요.
 
 단계별로 나눠 돌릴 수도 있습니다:

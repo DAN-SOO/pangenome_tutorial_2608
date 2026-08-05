@@ -57,21 +57,23 @@ bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" 3          # 실습3 (pangenome-a
 ### SLURM 예시
 
 ```bash
-#!/bin/bash
-#SBATCH --job-name=kogo_day2
-#SBATCH --partition=cpu
-#SBATCH --cpus-per-task=12
-#SBATCH --mem=64G
-#SBATCH --output=kogo_day2.%j.log
-
-source /data1/software/anaconda3/etc/profile.d/conda.sh   # conda 를 PATH 에만 올림
-#  환경 activate 는 마스터 스크립트가 KOGO_ENV(기본 /data1/dansay/conda/envs/kogo) 로 자동 처리
-
-export KOGO_CODE=/data1/dansay/tools/pangenome_tutorial_2608
-export KOGO_DATA=/data1/dansay/test/pangenome_kogo_2026
-cd /data1/dansay/run/pangenome_run            # 산출물이 여기 생김
-bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all
+mkdir -p ~/pangenome_run && cd ~/pangenome_run
+bash "$KOGO_CODE/scripts/submit_slurm.sh" all      # 또는 1 / 2 / 3
 ```
+
+`submit_slurm.sh` 가 배치 파일을 만들어 제출까지 합니다 — **계정별로 고칠 것이 없습니다.**
+job 이름은 `kogo<PHASE>_$USER`, 산출물·로그는 실행한 폴더(`./kogo_run`)에 생깁니다.
+conda 초기화 스크립트도 자동으로 찾고, `KOGO_DATA`/`KOGO_ENV` 설정은 잡에 그대로 전달됩니다.
+
+자원은 PHASE별 기본값(실습1: 4코어/16G/1h · 실습2: 8/72G/3h · 실습3: 8/32G/4h · all: 12/72G/8h)이며
+`SLURM_PARTITION` `SLURM_ACCOUNT` `SLURM_CPUS` `SLURM_MEM` `SLURM_TIME` `CONDA_SH` 로 덮어쓸 수 있습니다.
+
+```bash
+SLURM_PARTITION=long SLURM_ACCOUNT=mylab bash "$KOGO_CODE/scripts/submit_slurm.sh" all
+```
+
+> 직접 배치 파일을 쓰고 싶으면 `submit_slurm.sh` 가 만든
+> `kogo_run/.submit_kogo_<PHASE>.sbatch` 를 참고하거나 그대로 고쳐 쓰면 됩니다.
 
 ---
 
