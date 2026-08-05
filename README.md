@@ -207,6 +207,7 @@ SLURM 환경 예시와 HPC별 함정은 [docs/GUIDE.md](docs/GUIDE.md)를 참조
 | growth curve TSV가 0바이트 | panacus 0.5.x 버그 → **`panacus=0.4.1` 고정** |
 | DeepVariant `RuntimeError: File exists` | 공용 서버 `/dev/shm` 이름 충돌 → **3단계 직접 호출**(공유메모리 미사용) |
 | `apptainer/singularity 를 찾을 수 없습니다` | 스크립트가 자동 감지하므로 보통 발생하지 않음. 모듈 시스템이면 `module load singularity`, 또는 `export KOGO_CONTAINER=<경로>` |
+| `bcftools plugin "counts" was not found` | conda 환경이 아닌 시스템 bcftools가 쓰인 경우. 스크립트가 대체 집계로 자동 전환하므로 결과는 동일하지만, `which bcftools` 로 conda 환경 쪽인지 확인 권장 |
 | conda `Operation not permitted` | 공용 pkgs 캐시 쓰기 불가 → setup 스크립트가 개인 캐시를 자동 사용 (수동: `export CONDA_PKGS_DIRS=<개인경로>`) |
 | `[WARN] conda activate ... 실패` | 지정 환경 없음 → `bash "$KOGO_CODE/scripts/00_setup_env.sh"` 또는 `export KOGO_ENV=<경로\|이름\|skip>` |
 | `vg haplotypes` 포맷 오류 | `.hapl`이 구포맷 → 이 단계만 **vg 1.67.0** |
