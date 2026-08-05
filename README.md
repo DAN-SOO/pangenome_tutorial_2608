@@ -112,6 +112,25 @@ bash "$KOGO_CODE/scripts/00_setup_env.sh"     # conda 환경 생성 (1회, 이�
 mkdir -p ./pangenome_run && cd ./pangenome_run
 bash "$KOGO_CODE/scripts/run_all_kogo_day2.sh" all   # 전체 (실습1→2→3)
 ```
+### SLURM 클러스터라면 (권장)
+
+로그인 노드에서 무거운 계산을 돌리면 안 되는 환경에서는 제출 스크립트를 쓰세요.
+**계정별로 고칠 것이 없습니다** — 실행하는 사람의 `$USER`로 job 이름이 정해지고,
+산출물·로그도 현재 폴더 기준으로 생깁니다.
+
+```bash
+mkdir -p ~/pangenome_run && cd ~/pangenome_run
+bash "$KOGO_CODE/scripts/submit_slurm.sh" all    # 또는 1 / 2 / 3
+```
+
+제출 전 요약(파티션·자원·경로)을 보여주고 Job ID와 확인 명령을 알려줍니다.
+자원은 PHASE별 기본값(실습1: 4코어/16G/1h · 실습2: 8/72G/3h · 실습3: 8/32G/4h · all: 12/72G/8h)이며
+`SLURM_PARTITION` `SLURM_ACCOUNT` `SLURM_CPUS` `SLURM_MEM` `SLURM_TIME` `CONDA_SH` 로 덮어쓸 수 있습니다.
+
+```bash
+SLURM_PARTITION=long SLURM_ACCOUNT=mylab bash "$KOGO_CODE/scripts/submit_slurm.sh" all
+```
+
 
 phase를 나눠서도 실행할 수 있습니다:
 
