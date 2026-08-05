@@ -376,6 +376,45 @@ KOGO_GROWTH_PY
 
 chmod +x "$WORK"/bin/*.py
 
+# -----------------------------------------------------------------------------
+#  변이 수 집계: bcftools +counts (플러그인) → 없으면 동일 출력 대체 구현
+#
+#  `+counts` 는 bcftools 플러그인(.so)이라, 플러그인이 설치 안 된 bcftools
+#  (예: 시스템 /usr/bin/bcftools)에서는 "dlopen ... counts: cannot open
+#  shared object file" 로 실패한다. conda 로 설치한 bcftools 는 플러그인을
+#  $CONDA_PREFIX/libexec/bcftools 에 두므로, 그 경로를 BCFTOOLS_PLUGINS 로
+#  잡아주면 대개 해결된다. 그래도 안 되면 아래 대체 구현을 쓴다.
+#
+#  대체 구현은 %TYPE 을 읽어 타입 포함 여부로 세는데, +counts 와 동일하게
+#  한 사이트가 여러 타입에 중복 계수된다(예: SNP+INDEL 사이트는 둘 다 +1).
+#  강사 정답 6개 파일(01_type_split 3 + 02_our_population_spec_var 3)에서
+#  +counts 출력과 바이트 단위로 동일함을 확인했다.
+# -----------------------------------------------------------------------------
+if [[ -z "${BCFTOOLS_PLUGINS:-}" ]]; then
+  for _p in "${CONDA_PREFIX:-}/libexec/bcftools" \
+            "$(dirname "$(command -v bcftools 2>/dev/null || echo /nonexistent)")/../libexec/bcftools"; do
+    if [[ -d "$_p" ]]; then export BCFTOOLS_PLUGINS="$_p"; break; fi
+  done
+fi
+
+vcf_counts() {   # 사용법: vcf_counts <file.vcf.gz>   (stdout 에 +counts 형식 출력)
+  local V="$1"
+  if bcftools +counts "$V" 2>/dev/null; then
+    return 0
+  fi
+  echo "[WARN] bcftools +counts 플러그인을 쓸 수 없어 대체 집계를 사용합니다: $(basename "$V")" >&2
+  local NS
+  NS=$(bcftools query -l "$V" | wc -l | tr -d ' ')
+  bcftools query -f '%TYPE\n' "$V" | awk -v ns="$NS" '
+    { n++
+      if ($0 ~ /SNP/)   s++
+      if ($0 ~ /INDEL/) i++
+      if ($0 ~ /MNP/)   m++
+      if ($0 ~ /OTHER/) o++ }
+    END { printf "Number of samples: %d\nNumber of SNPs:    %d\nNumber of INDELs:  %d\nNumber of MNPs:    %d\nNumber of others:  %d\nNumber of sites:   %d\n",
+                 ns, s, i, m, o, n }'
+}
+
 # =============================================================================
 #  PHASE 1 — 실습1: growth curve + 변이 분석
 # =============================================================================
@@ -418,7 +457,7 @@ phase1() {
   : > ${DIR}/loci_count.txt
   for f in SNVs_only non_SNVs SVs; do
     echo "${f}.vcf.gz" >> ${DIR}/loci_count.txt
-    bcftools +counts ${DIR}/${f}.vcf.gz >> ${DIR}/loci_count.txt
+    vcf_counts ${DIR}/${f}.vcf.gz >> ${DIR}/loci_count.txt
   done
 
   # (2) 집단 특이 변이 (our=sample*, control=CHM13/HG/NA)
@@ -435,7 +474,7 @@ phase1() {
     mv ${DIR}/intersect/0000.vcf.gz ${DIR}/${NAME}
     rm -rf ${DIR}/group_var.vcf.gz* ${DIR}/col_var.vcf.gz* ${DIR}/col_miss.vcf.gz* ${DIR}/intersect
     echo ${NAME} >> ${DIR}/loci_count.txt
-    bcftools +counts ${DIR}/${NAME} >> ${DIR}/loci_count.txt
+    vcf_counts ${DIR}/${NAME} >> ${DIR}/loci_count.txt
   done
 
   # (3) 개인 특이 변이
@@ -450,7 +489,7 @@ phase1() {
       mv ${SDIR}/intersect/0000.vcf.gz ${SDIR}/${SAMPLE}_spec.vcf.gz
       rm -rf ${SDIR}/sample_var.vcf.gz* ${SDIR}/other_var.vcf.gz* ${SDIR}/intersect
       echo ${SAMPLE}_spec.vcf.gz >> ${SDIR}/loci_count.txt
-      bcftools +counts ${SDIR}/${SAMPLE}_spec.vcf.gz >> ${SDIR}/loci_count.txt
+      vcf_counts ${SDIR}/${SAMPLE}_spec.vcf.gz >> ${SDIR}/loci_count.txt
     done
   done
   echo "[DONE] 변이 분석 → 01_type_split / 02_our_population_spec_var / 03_individual_spec_var 의 loci_count.txt"
